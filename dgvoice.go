@@ -168,9 +168,12 @@ func PlayAudioFile(v *discordgo.VoiceConnection, filename string) {
 
 	// Send "speaking" packet over the voice websocket
 	v.Speaking(true)
-
+	IsSpeaking = true
 	// Send not "speaking" packet over the websocket when we finish
-	defer v.Speaking(false)
+	defer func() {
+		v.Speaking(false)
+		IsSpeaking = false
+	}()
 
 	// will actually only spawn one instance, a bit hacky.
 	if send == nil {
