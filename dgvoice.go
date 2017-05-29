@@ -151,58 +151,61 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 func PlayAudioFile(v *discordgo.VoiceConnection, filename string) {
 
 	// Create a shell command "object" to run.
-	run = exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
-	ffmpegout, err := run.StdoutPipe()
-	if err != nil {
-		fmt.Println("StdoutPipe Error:", err)
-		return
-	}
-
-	ffmpegbuf := bufio.NewReaderSize(ffmpegout, 16384)
-
-	// Starts the ffmpeg command
-	err = run.Start()
-	if err != nil {
-		fmt.Println("RunStart Error:", err)
-		return
-	}
-
-	// Send "speaking" packet over the voice websocket
-	v.Speaking(true)
-	IsSpeaking = true
-	// Send not "speaking" packet over the websocket when we finish
-	defer func() {
-		v.Speaking(false)
-		IsSpeaking = false
-	}()
-
-	// will actually only spawn one instance, a bit hacky.
-	if send == nil {
-		send = make(chan []int16, 2)
-	}
-	go SendPCM(v, send)
-
-	for {
-
-		// read data from ffmpeg stdout
-		audiobuf := make([]int16, frameSize*channels)
-		err = binary.Read(ffmpegbuf, binary.LittleEndian, &audiobuf)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return
-		}
+	if !IsSpeaking {
+		run = exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
+		ffmpegout, err := run.StdoutPipe()
 		if err != nil {
-			fmt.Println("error reading from ffmpeg stdout :", err)
+			fmt.Println("StdoutPipe Error:", err)
 			return
 		}
 
-		// Send received PCM to the sendPCM channel
-		send <- audiobuf
+		ffmpegbuf := bufio.NewReaderSize(ffmpegout, 16384)
+
+		// Starts the ffmpeg command
+		err = run.Start()
+		if err != nil {
+			fmt.Println("RunStart Error:", err)
+			return
+		}
+
+		// Send "speaking" packet over the voice websocket
+		v.Speaking(true)
+		IsSpeaking = true
+		// Send not "speaking" packet over the websocket when we finish
+		defer func() {
+			v.Speaking(false)
+			IsSpeaking = false
+		}()
+
+		// will actually only spawn one instance, a bit hacky.
+		if send == nil {
+			send = make(chan []int16, 2)
+		}
+		go SendPCM(v, send)
+
+		for {
+
+			// read data from ffmpeg stdout
+			audiobuf := make([]int16, frameSize*channels)
+			err = binary.Read(ffmpegbuf, binary.LittleEndian, &audiobuf)
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				return
+			}
+			if err != nil {
+				fmt.Println("error reading from ffmpeg stdout :", err)
+				return
+			}
+
+			// Send received PCM to the sendPCM channel
+			send <- audiobuf
+		}
+	} else {
+		fmt.Println("Already playing.")
 	}
 }
-
-// KillPlayer forces the player to stop by killing the ffmpeg cmd process
-// this method may be removed later in favor of using chans or bools to
-// request a stop.
-func KillPlayer() {
-	run.Process.Kill()
-}
+		// KillPlayer forces the player to stop by killing the ffmpeg cmd process
+		// this method may be removed later in favor of using chans or bools to
+		// request a stop.
+		func KillPlayer() {
+			run.Process.Kill()
+		}
