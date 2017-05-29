@@ -42,6 +42,7 @@ var (
 	recv        chan *discordgo.Packet
 	send        chan []int16
 	mu          sync.Mutex
+	IsSpeaking = false
 )
 
 // SendPCM will receive on the provied channel encode
