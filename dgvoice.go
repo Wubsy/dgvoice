@@ -148,7 +148,7 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 // PlayAudioFile will play the given filename to the already connected
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
-func PlayAudioFile(v *discordgo.VoiceConnection, filename string) {
+func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.Session) {
 
 	// Create a shell command "object" to run.
 	if !IsSpeaking {
@@ -175,6 +175,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, filename string) {
 		defer func() {
 			v.Speaking(false)
 			IsSpeaking = false
+			s.UpdateStatus(1, "")
 		}()
 
 		// will actually only spawn one instance, a bit hacky.
