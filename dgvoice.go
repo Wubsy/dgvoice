@@ -148,15 +148,15 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 // PlayAudioFile will play the given filename to the already connected
 // Discord voice server/channel.  voice websocket and udp socket
 // must already be setup before this will work.
-func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.Session) {
+func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.Session) (err error) {
 
 	// Create a shell command "object" to run.
 	if !IsSpeaking {
-		run = exec.Command("ffmpeg", "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
+		run = exec.Command("ffmpeg",  "-i", filename, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
 		ffmpegout, err := run.StdoutPipe()
 		if err != nil {
 			fmt.Println("StdoutPipe Error:", err)
-			return
+			return err
 		}
 
 		ffmpegbuf := bufio.NewReaderSize(ffmpegout, 16384)
@@ -165,7 +165,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.S
 		err = run.Start()
 		if err != nil {
 			fmt.Println("RunStart Error:", err)
-			return
+			return err
 		}
 
 		// Send "speaking" packet over the voice websocket
@@ -177,6 +177,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.S
 			IsSpeaking = false
 			s.UpdateStatus(1, "")
 		}()
+
 
 		// will actually only spawn one instance, a bit hacky.
 		if send == nil {
@@ -190,11 +191,11 @@ func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.S
 			audiobuf := make([]int16, frameSize*channels)
 			err = binary.Read(ffmpegbuf, binary.LittleEndian, &audiobuf)
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				return
+				return err
 			}
 			if err != nil {
 				fmt.Println("error reading from ffmpeg stdout :", err)
-				return
+				return err
 			}
 
 			// Send received PCM to the sendPCM channel
@@ -203,6 +204,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.S
 	} else {
 		fmt.Println("Already playing.")
 	}
+	return nil
 }
 		// KillPlayer forces the player to stop by killing the ffmpeg cmd process
 		// this method may be removed later in favor of using chans or bools to
