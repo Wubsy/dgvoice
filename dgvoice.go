@@ -43,6 +43,7 @@ var (
 	send        chan []int16
 	mu          sync.Mutex
 	IsSpeaking = false
+	ListReady = true
 )
 
 // SendPCM will receive on the provied channel encode
@@ -87,6 +88,9 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 
 		if v.Ready == false || v.OpusSend == nil {
 			fmt.Printf("Discordgo not ready for opus packets. %+v : %+v", v.Ready, v.OpusSend)
+			KillPlayer()
+			ListReady = false
+			IsSpeaking = false
 			return
 		}
 		// send encoded opus data to the sendOpus channel
@@ -210,5 +214,7 @@ func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.S
 		// this method may be removed later in favor of using chans or bools to
 		// request a stop.
 		func KillPlayer() {
-			run.Process.Kill()
+			if run != nil {
+				run.Process.Kill()
+			}
 		}
