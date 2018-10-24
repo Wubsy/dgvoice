@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	Volume = 128
+	Volume = 75
 	speakers    map[uint32]*gopus.Decoder
 	opusEncoder *gopus.Encoder
 	Run         *exec.Cmd
@@ -55,8 +55,8 @@ func SendPCM(v *discordgo.VoiceConnection, pcm <-chan []int16) {
 	// make sure this only runs one instance at a time.
 	mu.Lock()
 	if sendpcm || pcm == nil {
-			mu.Unlock()
-			return
+		mu.Unlock()
+		return
 	}
 	sendpcm = true
 	mu.Unlock()
@@ -162,7 +162,8 @@ func ReceivePCM(v *discordgo.VoiceConnection, c chan *discordgo.Packet) {
 func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.Session) (err error) {
 
 	// Create a shell command "object" to run.
-	if !IsSpeaking && Run == nil{
+
+	if !IsSpeaking {
 		Run = exec.Command("ffmpeg", "-i", filename, "-vol", strconv.Itoa(Volume), "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
 
 		ffmpegout, err := Run.StdoutPipe()
@@ -206,7 +207,6 @@ func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.S
 			}
 			v.RUnlock()
 
-
 			// read data from ffmpeg stdout
 			audiobuf := make([]int16, frameSize*channels)
 			err = binary.Read(ffmpegbuf, binary.LittleEndian, &audiobuf)
@@ -219,13 +219,24 @@ func PlayAudioFile(v *discordgo.VoiceConnection, filename string, s *discordgo.S
 			}
 
 			// Send received PCM to the sendPCM channel
-				send <- audiobuf
+			send <- audiobuf
 		}
+		IsSpeaking = false
 	} else {
 		fmt.Println("Already playing.")
 	}
+
 	return nil
 }
+
+func IsThisThingOn() bool { //taps mic
+	if Run != nil {
+		return true
+	} else {
+		return false
+	}
+}
+
 // KillPlayer forces the player to stop by killing the ffmpeg cmd process
 // this method may be removed later in favor of using chans or bools to
 // request a stop.
@@ -249,5 +260,5 @@ type StreamingSession struct {
 
 	finished bool
 	running  bool
-	err      error // If an error occured and we had to stop
+	err      error // If an error occurred and we had to stop
 }
